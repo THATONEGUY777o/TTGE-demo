@@ -1,11 +1,237 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Beep System</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Beep Communication System</title>
+<style>
+    * {
+        box-sizing: border-box;
+    }
+    body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Arial, sans-serif;
+        background: #080a0d;
+        color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+    }
+    .container {
+        width: 100%;
+        max-width: 700px;
+        background: #11151a;
+        border: 1px solid #252b33;
+        border-radius: 18px;
+        padding: 30px;
+        box-shadow: 0 0 35px rgba(255, 140, 0, 0.12);
+    }
+    h1 {
+        text-align: center;
+        margin-top: 0;
+        color: #ff8c00;
+    }
+    .subtitle {
+        text-align: center;
+        color: #8e969f;
+        margin-bottom: 30px;
+    }
+    label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: bold;
+    }
+    textarea,
+    input {
+        width: 100%;
+        background: #090c10;
+        color: white;
+        border: 1px solid #303740;
+        border-radius: 10px;
+        padding: 12px;
+        outline: none;
+    }
+    textarea {
+        min-height: 120px;
+        resize: vertical;
+    }
+    textarea:focus,
+    input:focus {
+        border-color: #ff8c00;
+    }
+    .section {
+        margin-bottom: 22px;
+    }
+    .decimal {
+        min-height: 100px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: #090c10;
+        border: 1px solid #303740;
+        border-radius: 10px;
+        padding: 12px;
+        color: #ffb45c;
+    }
+    .buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    button {
+        flex: 1;
+        min-width: 130px;
+        padding: 13px;
+        border: none;
+        border-radius: 10px;
+        background: #ff8c00;
+        color: black;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    button:hover {
+        background: #ffa733;
+    }
+    button.stop {
+        background: #303740;
+        color: white;
+    }
+    .status {
+        margin-top: 18px;
+        text-align: center;
+        color: #8e969f;
+    }
+</style>
 </head>
-
 <body>
-    <h1>Beep System</h1>
-    <p>Coming soon...</p>
+<div class="container">
+<h1>Beep Communication System</h1>
+<div class="subtitle">
+    Text → Decimal → Beeps
+</div>
+<div class="section">
+    <label for="textInput">Message</label>
+    <textarea
+        id="textInput"
+        placeholder="Type something..."
+        oninput="convertText()"></textarea>
+</div>
+<div class="section">
+    <label>Decimal Data</label>
+    <div id="decimalOutput" class="decimal">
+        Your decimal data will appear here...
+    </div>
+</div>
+<div class="section">
+    <label for="speed">Beep Speed</label>
+    <input
+        id="speed"
+        type="range"
+        min="50"
+        max="500"
+        value="150">
+</div>
+<div class="buttons">
+    <button onclick="playBeeps()">🔊 Play Beeps</button>
+    <button class="stop" onclick="stopBeeps()">⏹ Stop</button>
+</div>
+<div id="status" class="status">
+    Ready
+</div>
+</div>
+<script>
+let audioContext = null;
+let stopRequested = false;
+function convertText() {
+    const text = document.getElementById("textInput").value;
+    if (!text) {
+        document.getElementById("decimalOutput").textContent =
+            "Your decimal data will appear here...";
+        return;
+    }
+    const decimals = [];
+    for (let i = 0; i < text.length; i++) {
+        decimals.push(text.charCodeAt(i));
+    }
+    document.getElementById("decimalOutput").textContent =
+        decimals.join(" ");
+}
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+async function playBeeps() {
+    const text = document.getElementById("textInput").value;
+    if (!text) {
+        document.getElementById("status").textContent =
+            "Enter a message first.";
+        return;
+    }
+    stopRequested = false;
+    audioContext = new (
+        window.AudioContext ||
+        window.webkitAudioContext
+    )();
+    const speed =
+        Number(document.getElementById("speed").value);
+    const decimals = [];
+    for (let i = 0; i < text.length; i++) {
+        decimals.push(text.charCodeAt(i));
+    }
+    document.getElementById("status").textContent =
+        "Transmitting...";
+    for (const decimal of decimals) {
+        if (stopRequested) {
+            break;
+        }
+        await playNumber(decimal, speed);
+    }
+    if (!stopRequested) {
+        document.getElementById("status").textContent =
+            "Transmission complete.";
+    }
+}
+function playTone(frequency, duration) {
+    return new Promise(resolve => {
+        const oscillator =
+            audioContext.createOscillator();
+        const gain =
+            audioContext.createGain();
+        oscillator.frequency.value = frequency;
+        oscillator.type = "sine";
+        gain.gain.value = 0.15;
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start();
+        setTimeout(() => {
+            oscillator.stop();
+            resolve();
+        }, duration);
+    });
+}
+async function playNumber(number, speed) {
+    const digits = String(number);
+    for (const digit of digits) {
+        if (stopRequested) {
+            return;
+        }
+        const value = Number(digit);
+        const frequency =
+            400 + (value * 70);
+        await playTone(frequency, speed);
+        await sleep(40);
+    }
+    await sleep(100);
+}
+function stopBeeps() {
+    stopRequested = true;
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+    }
+    document.getElementById("status").textContent =
+        "Transmission stopped.";
+}
+</script>
 </body>
 </html>
